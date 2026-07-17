@@ -44,6 +44,9 @@ canvas#dust{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.4}
 .pill:hover{border-color:rgba(201,162,74,.55)}
 #back-pill{left:26px}
 #music-pill{right:26px;cursor:pointer;user-select:none}
+#back-to-top{position:fixed;bottom:26px;right:26px;z-index:50;width:44px;height:44px;border-radius:50%;background:rgba(14,13,15,.85);border:1px solid rgba(201,162,74,.4);color:var(--gold-bright);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transform:translateY(10px);transition:opacity .3s ease, transform .3s ease, background .3s ease;backdrop-filter:blur(4px)}
+#back-to-top.show{opacity:1;pointer-events:auto;transform:translateY(0)}
+#back-to-top:hover{background:rgba(201,162,74,.15)}
 .note-icon{width:12px;height:12px;border-radius:50%;background:radial-gradient(circle,var(--gold) 0 2px,#1a1a1a 3px 100%);animation:spin 3s linear infinite}
 #music-pill.paused .note-icon{animation-play-state:paused}
 
@@ -228,10 +231,11 @@ canvas#dust{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.4}
   <span>The Book</span>
 </a>
 
-<audio id="bg-music" src="song.mp3" loop></audio>
-<div class="pill" id="music-pill" title="You & I — Riky Rick">
+<button id="back-to-top" aria-label="Back to top" title="Back to top">&#8593;</button>
+<audio id="bg-music" loop></audio>
+<div class="pill" id="music-pill" title="Anniversary — Tony! Toni! Toné!" style="display:none">
   <span class="note-icon"></span>
-  <span>You &amp; I</span>
+  <span>Anniversary</span>
 </div>
 
 <!-- HERO -->
@@ -485,25 +489,39 @@ const musicPill = document.getElementById('music-pill');
 let playing=false;
 enterBtn.addEventListener('click', ()=>{
   gate.classList.add('dropped');
-  audio.volume=0.8;
-  audio.play().then(()=>{playing=true;musicPill.classList.remove('paused');}).catch(()=>{});
   setTimeout(()=>{ sweep.classList.add('go'); }, 350);
   setTimeout(()=>{ gate.classList.add('hide'); }, 750);
   setTimeout(()=>{ gate.style.display='none'; sweep.style.display='none'; }, 1500);
 });
+function switchToAnniversarySong(){
+  audio.pause();
+  audio.src = 'anniversary.mp3';
+  audio.volume = 0.8;
+  audio.currentTime = 0;
+  audio.play().then(()=>{playing=true;musicPill.classList.remove('paused');}).catch(()=>{});
+  musicPill.style.display = '';
+}
 musicPill.addEventListener('click', ()=>{
   if(playing){ audio.pause(); playing=false; musicPill.classList.add('paused'); }
   else { audio.play().then(()=>{playing=true;musicPill.classList.remove('paused');}); }
 });
 
+const cakeSection = document.getElementById('cake-section');
+const boothSection = document.getElementById('booth');
+function updateGatedSections(tab){
+  if(cakeSection) cakeSection.style.display = (tab==='year') ? '' : 'none';
+  if(boothSection) boothSection.style.display = (tab==='love') ? '' : 'none';
+}
 document.querySelectorAll('.dance-line').forEach(btn=>{
   btn.addEventListener('click',()=>{
     document.querySelectorAll('.dance-line').forEach(b=>b.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+    updateGatedSections(btn.dataset.tab);
   });
 });
+updateGatedSections('love');
 
 // PHOTO DECK
 const deckEl = document.getElementById('deck');
@@ -576,6 +594,12 @@ const wishMsg = document.getElementById('wish-msg');
 let litCount = candles.length;
 let listening = false;
 let lastBlowAt = 0;
+let micStream = null;
+let micCtx = null;
+function releaseMic(){
+  if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream = null; }
+  if(micCtx){ micCtx.close().catch(()=>{}); micCtx = null; }
+}
 
 function updateCount(){
   micCount.textContent = litCount < candles.length ? `${candles.length - litCount} of ${candles.length} out` : '';
@@ -591,6 +615,7 @@ function extinguishOne(){
 }
 function finishWish(){
   listening = false;
+  releaseMic();
   micStatus.textContent = '';
   breathMeter.style.display = 'none';
   micFallback.style.display = 'none';
@@ -615,8 +640,10 @@ micStart.addEventListener('click', async ()=>{
   updateCount();
   try{
     const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    micStream = stream;
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     const ctx = new AudioCtx();
+    micCtx = ctx;
     const source = ctx.createMediaStreamSource(stream);
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 512;
@@ -647,6 +674,7 @@ micStart.addEventListener('click', async ()=>{
 });
 micFallback.addEventListener('click', ()=>{
   listening = false;
+  releaseMic();
   micStatus.textContent = '';
   breathMeter.style.display = 'none';
   blowOutAll();
@@ -689,6 +717,17 @@ document.getElementById('yes2').addEventListener('click', ()=>{
   document.getElementById('q2').classList.remove('active');
   document.getElementById('response').classList.add('active');
   dropConfetti(40);
+  switchToAnniversarySong();
+});
+
+// BACK TO TOP
+const backToTop = document.getElementById('back-to-top');
+window.addEventListener('scroll', ()=>{
+  if(window.scrollY > 500) backToTop.classList.add('show');
+  else backToTop.classList.remove('show');
+});
+backToTop.addEventListener('click', ()=>{
+  window.scrollTo({top:0, behavior:'smooth'});
 });
 </script>
 
